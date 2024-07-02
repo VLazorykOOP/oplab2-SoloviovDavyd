@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <vector>
+#include <thread> // для роботи з потоками
 
 using namespace std;
 
@@ -22,10 +23,8 @@ double getRandomDirection() {
     return ((double)rand() / RAND_MAX) * 2 * M_PI; // генерація випадкового напрямку від 0 до 2*PI
 }
 
-int main() {
-    srand(time(0)); // Ініціалізація генератора випадкових чисел за поточним часом
-
-    vector<Point> trajectory; // Вектор для збереження траєкторії
+// Функція для обчислення траєкторії у своєму потоці
+void calculateTrajectory(vector<Point>& trajectory) {
     Point currentPosition = { 0, 0 }; // Початкова позиція (0, 0)
     trajectory.push_back(currentPosition); // Додавання початкової позиції до траєкторії
 
@@ -43,6 +42,20 @@ int main() {
         // Виведення поточного часу і позиції
         cout << "Time: " << t + N << "s, Position: (" << currentPosition.x << ", " << currentPosition.y << ")\n";
     }
+}
+
+int main() {
+    srand(time(0)); // Ініціалізація генератора випадкових чисел за поточним часом
+
+    vector<Point> trajectory1, trajectory2; // Вектори для збереження траєкторій
+
+    // Створення потоків
+    thread thread1(calculateTrajectory, ref(trajectory1));
+    thread thread2(calculateTrajectory, ref(trajectory2));
+
+    // Очікування завершення потоків
+    thread1.join();
+    thread2.join();
 
     return 0;
 }
