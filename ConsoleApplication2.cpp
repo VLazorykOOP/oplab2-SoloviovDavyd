@@ -1,6 +1,8 @@
 ﻿#include <iostream>
 #include <cmath>
 #include <vector>
+#include <thread>
+#include <mutex> // для захисту вектора від одночасного доступу
 
 using namespace std;
 
@@ -15,22 +17,50 @@ struct Point {
     double x, y;
 };
 
+// Глобальний вектор для зберігання траєкторії
+vector<Point> trajectory;
+
+// М'ютекс для синхронізації доступу до вектора trajectory
+mutex trajectoryMutex;
+
+// Функція для обчислення траєкторії у своєму потоці
+void calculateTrajectory(int start, int end) {
+    double omega = V / R; // кутова швидкість
+
+    for (int t = start; t <= end; ++t) {
+        double angle = omega * t; // поточний кут
+        Point currentPosition;
+        currentPosition.x = R * cos(angle); // координата x
+        currentPosition.y = R * sin(angle); // координата y
+
+        // Захист доступу до вектора trajectory за допомогою м'ютекса
+        trajectoryMutex.lock();
+        trajectory.push_back(currentPosition);
+        trajectoryMutex.unlock();
+    }
+}
+
 int main() {
-    vector<Point> trajectory; // Вектор для збереження траєкторії
-    Point currentPosition = { R, 0 }; // Початкова позиція на колі (на осі x, y = 0)
-    trajectory.push_back(currentPosition); // Додавання початкової позиції до траєкторії
+    // Розділення часу симуляції між потоками
+    const int numThreads = 2;
+    int timePerThread = TOTAL_TIME / numThreads;
 
-    double omega = V / R; // кутова швидкість, обчислюється як швидкість поділена на радіус
+    // Створення потоків
+    vector<thread> threads;
+    for (int i = 0; i < numThreads; ++i) {
+        int start = i * timePerThread + 1;
+        int end = (i + 1) * timePerThread;
+        threads.emplace_back(calculateTrajectory, start, end);
+    }
 
-    // Цикл, який проходить кожну секунду загального часу симуляції
-    for (int t = 1; t <= TOTAL_TIME; ++t) {
-        double angle = omega * t; // поточний кут, обчислюється як кутова швидкість помножена на час
-        currentPosition.x = R * cos(angle); // нова координата x, обчислена як R * cos(кут)
-        currentPosition.y = R * sin(angle); // нова координата y, обчислена як R * sin(кут)
-        trajectory.push_back(currentPosition); // Додавання нової позиції до траєкторії
+    // Очікування завершення потоків
+    for (auto& thread : threads) {
+        thread.join();
+    }
 
-        // Виведення поточного часу і позиції
-        cout << "Time: " << t << "s, Position: (" << currentPosition.x << ", " << currentPosition.y << ")\n";
+    // Виведення результатів
+    for (size_t i = 0; i < trajectory.size(); ++i) {
+        cout << "Time: " << i + 1 << "s, Position: (" << trajectory[i].x << ", " << trajectory[i].y << ")\n";
     }
 
     return 0;
